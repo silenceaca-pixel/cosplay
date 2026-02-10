@@ -64,17 +64,14 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- GITHUB DEPLOYMENT CONFIG ---
-        // If you want to host this on GitHub Pages, fill these in from your Firebase Console.
-        // The app will automatically use these if __firebase_config is not present.
+        // CONFIG: Replace these with your actual keys from Firebase Console if hosting on GitHub
         const githubFirebaseConfig = {
             apiKey: "AIzaSyCVs3azcvXUt5TbHbCLNZsU3AHiVW4nwtk",
-  authDomain: "cosplay-f8f1e.firebaseapp.com",
-  projectId: "cosplay-f8f1e",
-  storageBucket: "cosplay-f8f1e.firebasestorage.app",
-  messagingSenderId: "86635858213",
-  appId: "1:86635858213:web:eae6f15a09bb066a7032cc",
-  measurementId: "G-TB73NQ131K"
+            authDomain: "cosplay-f8f1e.firebaseapp.com",
+            projectId: "cosplay-f8f1e",
+            storageBucket: "cosplay-f8f1e.firebasestorage.app",
+            messagingSenderId: "86635858213",
+            appId: "1:86635858213:web:eae6f15a09bb066a7032cc"
         };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-vote-production';
@@ -96,28 +93,16 @@
             }
 
             async initFirebase() {
-                if (!firebaseConfig.apiKey && typeof __firebase_config === 'undefined') {
-                    console.error("Firebase Config Missing!");
-                    document.getElementById('sync-status').textContent = "Offline Mode (Keys Missing)";
-                    document.getElementById('sync-status').className = "text-amber-500 font-bold";
-                    this.render();
-                    return;
-                }
-
                 try {
                     const app = initializeApp(firebaseConfig);
                     this.auth = getAuth(app);
                     this.db = getFirestore(app);
 
                     const initAuth = async () => {
-                        try {
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                                await signInWithCustomToken(this.auth, __initial_auth_token);
-                            } else {
-                                await signInAnonymously(this.auth);
-                            }
-                        } catch (authError) {
-                            console.warn("Auth failed:", authError);
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(this.auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(this.auth);
                         }
                     };
                     await initAuth();
@@ -135,13 +120,23 @@
                     });
                 } catch (e) { 
                     console.error("Firebase Init Error:", e);
-                    this.showNotification("Database Connection Failed", "error");
+                    document.getElementById('sync-status').textContent = "Offline Mode (Check Config)";
+                    this.render();
                 }
+            }
+
+            // Helper to convert File to Base64 string
+            toBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                });
             }
 
             async trackVisit() {
                 if (!this.user || !this.dbActive) return;
-                // FIX: Path must be even number of segments. Added 'stats' as document ID.
                 const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics', 'stats');
                 try { await setDoc(statsRef, { views: increment(1) }, { merge: true }); } catch (e) { console.error(e); }
             }
@@ -162,7 +157,6 @@
                     this.render();
                 }, (err) => console.error(err));
 
-                // FIX: Path must be even number of segments.
                 const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics', 'stats');
                 onSnapshot(statsRef, (snapshot) => {
                     if (snapshot.exists()) this.siteStats = snapshot.data();
@@ -210,7 +204,7 @@
                 e.preventDefault();
                 if (this.isUploading) return;
                 if (!this.user || !this.dbActive) {
-                    this.showNotification("Database offline. Check Firebase config.", "error");
+                    this.showNotification("Database offline.", "error");
                     return;
                 }
                 
@@ -221,7 +215,7 @@
                 const cosFile = document.getElementById('cos-file').files[0];
 
                 if (!cosplayer || !character || !refFile || !cosFile) {
-                    this.showNotification("Please fill all fields and upload both photos", "error");
+                    this.showNotification("Fill all fields and upload photos", "error");
                     return;
                 }
 
@@ -229,8 +223,9 @@
                 this.render();
 
                 try {
-                    const refUrl = URL.createObjectURL(refFile);
-                    const cosUrl = URL.createObjectURL(cosFile);
+                    // CONVERT TO BASE64 SO IT PERSISTS IN FIRESTORE
+                    const refBase64 = await this.toBase64(refFile);
+                    const cosBase64 = await this.toBase64(cosFile);
 
                     const entriesRef = collection(this.db, 'artifacts', appId, 'public', 'data', 'entries');
                     
@@ -238,8 +233,8 @@
                         cosplayer,
                         character,
                         series,
-                        refImg: refUrl, 
-                        cosplayImg: cosUrl,
+                        refImg: refBase64, 
+                        cosplayImg: cosBase64,
                         votes: 0,
                         createdAt: Date.now()
                     });
@@ -248,8 +243,8 @@
                     this.isUploading = false;
                     this.setView('gallery');
                 } catch (e) {
-                    console.error(e);
-                    this.showNotification("Submission failed.", "error");
+                    console.error("Submission Error:", e);
+                    this.showNotification("Failed to upload. Check security rules.", "error");
                     this.isUploading = false;
                     this.render();
                 }
@@ -283,7 +278,7 @@
             }
 
             async deleteEntry(id) {
-                if (!confirm("Are you sure you want to delete this entry?")) return;
+                if (!confirm("Delete this entry?")) return;
                 try {
                     await deleteDoc(doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', id));
                     this.showNotification("Entry removed");
@@ -312,10 +307,9 @@
                             <header class="mb-12 text-center">
                                 <h1 class="text-4xl font-extrabold text-white mb-2 tracking-tight">Cosplay Arena</h1>
                                 <p class="text-slate-400 italic">"The art of craftsmanship on display"</p>
-                                ${!this.dbActive ? '<p class="mt-4 text-rose-400 text-sm font-bold bg-rose-500/10 inline-block px-4 py-1 rounded-full">⚠️ Connection Offline: Database config required for GitHub deploy.</p>' : ''}
                             </header>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                ${this.entries.length === 0 ? '<p class="col-span-2 text-center text-slate-600 py-12">No entries yet. Be the first to enter!</p>' : this.entries.map((entry, idx) => `
+                                ${this.entries.length === 0 ? '<p class="col-span-2 text-center text-slate-600 py-12">No entries yet.</p>' : this.entries.map((entry, idx) => `
                                     <div class="glass-card rounded-3xl overflow-hidden shadow-2xl flex flex-col">
                                         <div class="p-5 flex justify-between items-center bg-slate-900/40 border-b border-slate-800">
                                             <div class="flex items-center gap-3">
@@ -360,16 +354,16 @@
                                     <div class="space-y-4">
                                         <div>
                                             <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Cosplayer Name</label>
-                                            <input id="form-name" type="text" required placeholder="ShadowMoon" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
+                                            <input id="form-name" type="text" required placeholder="Name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
                                         </div>
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Character</label>
-                                                <input id="form-char" type="text" required placeholder="V (Cyberpunk)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
+                                                <input id="form-char" type="text" required placeholder="Character" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
                                             </div>
                                             <div>
                                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Series</label>
-                                                <input id="form-series" type="text" required placeholder="Series Name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
+                                                <input id="form-series" type="text" required placeholder="Series" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
                                             </div>
                                         </div>
                                     </div>
@@ -400,57 +394,55 @@
                 } else if (this.view === 'admin') {
                     if (!this.isAdmin) {
                         container.innerHTML = `
-                        <div class="max-w-md mx-auto mt-24 p-10 glass-card rounded-[2.5rem] text-center animate-fade-in shadow-2xl">
-                            <i data-lucide="lock" class="w-10 h-10 text-indigo-400 mx-auto mb-6"></i>
-                            <h2 class="text-2xl font-bold text-white mb-8">Admin Terminal</h2>
-                            <input type="password" id="admin-pass" placeholder="Access Code" class="w-full bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-white mb-6 text-center outline-none focus:border-indigo-500">
-                            <button onclick="app.authenticateAdmin()" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold text-white hover:bg-indigo-500">Access Database</button>
-                        </div>`;
+                            <div class="max-w-md mx-auto mt-24 p-10 glass-card rounded-[2.5rem] text-center animate-fade-in shadow-2xl">
+                                <i data-lucide="lock" class="w-10 h-10 text-indigo-400 mx-auto mb-6"></i>
+                                <h2 class="text-2xl font-bold text-white mb-8">Admin Terminal</h2>
+                                <input type="password" id="admin-pass" placeholder="Access Code" class="w-full bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-white mb-6 text-center outline-none focus:border-indigo-500">
+                                <button onclick="app.authenticateAdmin()" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold text-white hover:bg-indigo-500">Access Database</button>
+                            </div>`;
                     } else {
                         const totalVotes = this.entries.reduce((acc, curr) => acc + (curr.votes || 0), 0);
                         container.innerHTML = `
-                        <div class="max-w-6xl mx-auto p-8 animate-fade-in">
-                            <div class="flex justify-between items-center mb-12">
-                                <h2 class="text-3xl font-black text-white tracking-tighter">Ranking Console</h2>
-                                <button onclick="app.logoutAdmin()" class="px-5 py-2.5 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl text-xs font-bold">Logout</button>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                                <div class="stat-card p-8 rounded-3xl">
-                                    <p class="text-slate-500 text-xs font-bold uppercase mb-2">Platform Hits</p>
-                                    <h3 class="text-4xl font-black text-white">${this.siteStats.views || 0}</h3>
+                            <div class="max-w-6xl mx-auto p-8 animate-fade-in">
+                                <div class="flex justify-between items-center mb-12">
+                                    <h2 class="text-3xl font-black text-white tracking-tighter">Ranking Console</h2>
+                                    <button onclick="app.logoutAdmin()" class="px-5 py-2.5 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl text-xs font-bold">Logout</button>
                                 </div>
-                                <div class="stat-card p-8 rounded-3xl">
-                                    <p class="text-slate-500 text-xs font-bold uppercase mb-2">Global Votes</p>
-                                    <h3 class="text-4xl font-black text-indigo-400">${totalVotes}</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                                    <div class="stat-card p-8 rounded-3xl">
+                                        <p class="text-slate-500 text-xs font-bold uppercase mb-2">Platform Hits</p>
+                                        <h3 class="text-4xl font-black text-white">${this.siteStats.views || 0}</h3>
+                                    </div>
+                                    <div class="stat-card p-8 rounded-3xl">
+                                        <p class="text-slate-500 text-xs font-bold uppercase mb-2">Global Votes</p>
+                                        <h3 class="text-4xl font-black text-indigo-400">${totalVotes}</h3>
+                                    </div>
+                                    <div class="stat-card p-8 rounded-3xl">
+                                        <p class="text-slate-500 text-xs font-bold uppercase mb-2">Live Entries</p>
+                                        <h3 class="text-4xl font-black text-emerald-400">${this.entries.length}</h3>
+                                    </div>
                                 </div>
-                                <div class="stat-card p-8 rounded-3xl">
-                                    <p class="text-slate-500 text-xs font-bold uppercase mb-2">Live Entries</p>
-                                    <h3 class="text-4xl font-black text-emerald-400">${this.entries.length}</h3>
-                                </div>
-                            </div>
-
-                            <div class="glass-card rounded-3xl overflow-hidden">
-                                <div class="p-6 border-b border-slate-800"><h3 class="font-bold text-white uppercase text-xs tracking-widest">Entry Registry</h3></div>
-                                <div class="divide-y divide-slate-800">
-                                    ${this.entries.map((e, idx) => `
-                                        <div class="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                                            <div class="flex items-center gap-4">
-                                                <span class="w-6 text-center font-mono text-slate-600 text-xs">${idx + 1}</span>
-                                                <div>
-                                                    <p class="text-sm font-bold text-white">${e.cosplayer}</p>
-                                                    <p class="text-[10px] text-slate-500 uppercase">${e.character}</p>
+                                <div class="glass-card rounded-3xl overflow-hidden">
+                                    <div class="p-6 border-b border-slate-800"><h3 class="font-bold text-white uppercase text-xs tracking-widest">Entry Registry</h3></div>
+                                    <div class="divide-y divide-slate-800">
+                                        ${this.entries.map((e, idx) => `
+                                            <div class="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                                                <div class="flex items-center gap-4">
+                                                    <span class="w-6 text-center font-mono text-slate-600 text-xs">${idx + 1}</span>
+                                                    <div>
+                                                        <p class="text-sm font-bold text-white">${e.cosplayer}</p>
+                                                        <p class="text-[10px] text-slate-500 uppercase">${e.character}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-6">
+                                                    <span class="text-sm font-bold text-indigo-400 font-mono">${e.votes || 0} V</span>
+                                                    <button onclick="app.deleteEntry('${e.id}')" class="text-slate-700 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                                 </div>
                                             </div>
-                                            <div class="flex items-center gap-6">
-                                                <span class="text-sm font-bold text-indigo-400 font-mono">${e.votes || 0} V</span>
-                                                <button onclick="app.deleteEntry('${e.id}')" class="text-slate-700 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                            </div>
-                                        </div>
-                                    `).join('')}
+                                        `).join('')}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>`;
+                            </div>`;
                     }
                 }
                 lucide.createIcons();
