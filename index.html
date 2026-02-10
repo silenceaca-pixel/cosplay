@@ -52,7 +52,7 @@
                     <span id="sync-status">Initialising...</span>
                 </span>
                 <span class="text-slate-700">|</span>
-                <span>Secure Voting Protocol v2.8.1</span>
+                <span>Secure Voting Protocol v2.8.2</span>
             </p>
         </footer>
     </div>
@@ -60,7 +60,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         class CosplayApp {
             constructor() {
@@ -123,8 +123,9 @@
             setupListeners() {
                 if (!this.user) return;
 
-                // Rule 1: Strict Paths
-                const entriesRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'entries');
+                // Rule 1: Updated to standard collection names for easier rule management
+                // Collection: entries
+                const entriesRef = collection(this.db, 'entries');
                 
                 // Rule 2: No complex queries, sort in JS
                 onSnapshot(entriesRef, (snapshot) => {
@@ -133,10 +134,12 @@
                     this.render();
                 }, (error) => {
                     console.error("Firestore Permission Denied:", error);
+                    // This error usually means the Firestore Rules in the Firebase Console need to be set to allow read/write
                     this.showNotification("Check Firestore Security Rules", "error");
                 });
 
-                const votesRef = doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'settings', 'votes');
+                // Collection: user_votes
+                const votesRef = doc(this.db, 'user_votes', this.user.uid);
                 onSnapshot(votesRef, (snapshot) => {
                     this.votedIds = snapshot.exists() ? snapshot.data().votedIds || [] : [];
                     this.render();
@@ -168,12 +171,12 @@
                 if (!this.user || this.votedIds.includes(id)) return;
                 
                 try {
-                    const entryRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'entries', id);
+                    const entryRef = doc(this.db, 'entries', id);
                     const snap = await getDoc(entryRef);
                     
                     if (snap.exists()) {
                         await updateDoc(entryRef, { votes: (snap.data().votes || 0) + 1 });
-                        const userVotesRef = doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'settings', 'votes');
+                        const userVotesRef = doc(this.db, 'user_votes', this.user.uid);
                         await setDoc(userVotesRef, { votedIds: [...this.votedIds, id] }, { merge: true });
                         this.showNotification("Vote cast successfully!");
                     }
@@ -205,7 +208,7 @@
                         ownerId: this.user.uid
                     };
 
-                    const entriesRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'entries');
+                    const entriesRef = collection(this.db, 'entries');
                     await addDoc(entriesRef, newEntry);
                     this.showNotification("Contest entry submitted!");
                     this.setView('gallery');
@@ -220,7 +223,7 @@
             async deleteEntry(id) {
                 if (!this.isAdmin) return;
                 try {
-                    await deleteDoc(doc(this.db, 'artifacts', this.appId, 'public', 'data', 'entries', id));
+                    await deleteDoc(doc(this.db, 'entries', id));
                     this.showNotification("Entry removed");
                 } catch (e) {
                     this.showNotification("Action restricted", "error");
@@ -249,7 +252,7 @@
                                 ${this.entries.length === 0 ? `
                                     <div class="col-span-full py-32 text-center text-slate-600 border-2 border-dashed border-slate-800 rounded-3xl">
                                         <i data-lucide="image" class="w-12 h-12 mx-auto mb-4 opacity-20"></i>
-                                        <p>No entries found in the current cloud node.</p>
+                                        <p>No entries found. Check your Firestore rules to ensure public read is enabled.</p>
                                     </div>
                                 ` : ''}
                                 
