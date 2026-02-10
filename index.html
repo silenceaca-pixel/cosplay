@@ -8,28 +8,29 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; }
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; overflow-x: hidden; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .glass-card { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
     </style>
 </head>
 <body class="selection:bg-indigo-500/30">
 
     <div id="root">
         <!-- Navigation -->
-        <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-6 py-4">
+        <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 px-6 py-4">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
                 <div class="flex items-center gap-2 cursor-pointer" onclick="app.setView('gallery')">
-                    <div class="bg-indigo-600 p-2 rounded-lg">
+                    <div class="bg-indigo-600 p-2 rounded-lg shadow-lg shadow-indigo-500/20">
                         <i data-lucide="camera" class="text-white w-6 h-6"></i>
                     </div>
                     <span class="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">COSVOTE</span>
                 </div>
                 <div class="flex gap-6 items-center">
-                    <button onclick="app.setView('gallery')" id="nav-gallery" class="text-sm font-medium text-indigo-400 transition-colors">Gallery</button>
+                    <button onclick="app.setView('gallery')" id="nav-gallery" class="text-sm font-medium transition-colors">Gallery</button>
                     <button onclick="app.setView('upload')" id="nav-upload" class="text-sm font-medium text-slate-400 hover:text-white transition-colors">Enter Contest</button>
                     <button onclick="app.setView('admin')" id="nav-admin" class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all">
                         <i data-lucide="shield-check" class="w-4 h-4"></i> Admin
@@ -38,20 +39,24 @@
             </div>
         </nav>
 
-        <main id="main-content" class="pb-20 min-h-screen"></main>
+        <main id="main-content" class="pb-24 min-h-screen"></main>
 
-        <!-- Notification Toast -->
-        <div id="notification" class="fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-2xl z-[100] flex items-center gap-3 border opacity-0 pointer-events-none transition-all duration-300"></div>
+        <!-- Notification -->
+        <div id="notification" class="fixed bottom-20 right-6 px-6 py-3 rounded-xl shadow-2xl z-[100] flex items-center gap-3 border opacity-0 pointer-events-none transition-all duration-300 transform translate-y-2"></div>
 
         <!-- Footer -->
-        <footer class="fixed bottom-0 w-full bg-slate-900/50 backdrop-blur-md border-t border-slate-800 py-3 px-6 text-center">
-            <p class="text-[10px] text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2">
-                Secure Voting Protocol v2.6.0 <span class="text-indigo-500">•</span> <span id="sync-status">Syncing...</span>
+        <footer class="fixed bottom-0 w-full bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-4 px-6 text-center z-40">
+            <p class="text-[10px] text-slate-500 uppercase tracking-widest flex items-center justify-center gap-3">
+                <span class="flex items-center gap-1.5">
+                    <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span id="sync-status">Initialising...</span>
+                </span>
+                <span class="text-slate-700">|</span>
+                <span>Secure Voting Protocol v2.8.1</span>
             </p>
         </footer>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -66,141 +71,146 @@
                 this.user = null;
                 this.isUploading = false;
                 
+                // Config provided by user
+                this.firebaseConfig = {
+                    apiKey: "AIzaSyCVs3azcvXUt5TbHbCLNZsU3AHiVW4nwtk",
+                    authDomain: "cosplay-f8f1e.firebaseapp.com",
+                    projectId: "cosplay-f8f1e",
+                    storageBucket: "cosplay-f8f1e.firebasestorage.app",
+                    messagingSenderId: "86635858213",
+                    appId: "1:86635858213:web:eae6f15a09bb066a7032cc",
+                    measurementId: "G-TB73NQ131K"
+                };
+
                 this.initFirebase();
             }
 
             async initFirebase() {
                 try {
-                    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-                    this.appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-vote-v1';
-                    
-                    const firebaseApp = initializeApp(firebaseConfig);
-                    this.auth = getAuth(firebaseApp);
-                    this.db = getFirestore(firebaseApp);
+                    const app = initializeApp(this.firebaseConfig);
+                    this.auth = getAuth(app);
+                    this.db = getFirestore(app);
+                    this.appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-app-v1';
 
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(this.auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(this.auth);
-                    }
+                    // Rule 3: Auth first
+                    const initAuth = async () => {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(this.auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(this.auth);
+                        }
+                    };
+
+                    await initAuth();
 
                     onAuthStateChanged(this.auth, (user) => {
                         this.user = user;
                         if (user) {
-                            document.getElementById('sync-status').textContent = "Cloud Active";
-                            document.getElementById('sync-status').classList.add('text-emerald-500');
+                            const statusText = document.getElementById('sync-status');
+                            const statusDot = document.getElementById('status-dot');
+                            statusText.textContent = "Cloud Node Active";
+                            statusText.className = "text-emerald-500 font-bold";
+                            statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
                             this.setupListeners();
                         }
                     });
                 } catch (e) {
-                    this.showNotification("Database Error", "error");
+                    console.error("Firebase Auth Error:", e);
+                    this.showNotification("Database Link Failed", "error");
                 }
             }
 
             setupListeners() {
+                if (!this.user) return;
+
+                // Rule 1: Strict Paths
                 const entriesRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'entries');
+                
+                // Rule 2: No complex queries, sort in JS
                 onSnapshot(entriesRef, (snapshot) => {
                     this.entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.entries.sort((a, b) => (b.votes || 0) - (a.votes || 0));
                     this.render();
-                }, (err) => console.error("Entries Error", err));
+                }, (error) => {
+                    console.error("Firestore Permission Denied:", error);
+                    this.showNotification("Check Firestore Security Rules", "error");
+                });
 
                 const votesRef = doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'settings', 'votes');
                 onSnapshot(votesRef, (snapshot) => {
                     this.votedIds = snapshot.exists() ? snapshot.data().votedIds || [] : [];
                     this.render();
-                });
-            }
-
-            // --- HELPER: Image Compression Logic ---
-            async compressImage(file, maxWidth = 800) {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = (event) => {
-                        const img = new Image();
-                        img.src = event.target.result;
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            const scale = maxWidth / img.width;
-                            canvas.width = maxWidth;
-                            canvas.height = img.height * scale;
-                            
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            
-                            // Convert to JPEG with 0.6 quality to save space
-                            resolve(canvas.toDataURL('image/jpeg', 0.6));
-                        };
-                    };
-                });
+                }, (err) => console.log("User data sync restricted"));
             }
 
             setView(view) {
                 this.view = view;
                 this.render();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
 
             showNotification(message, type = 'success') {
                 const toast = document.getElementById('notification');
-                toast.textContent = message;
-                toast.className = `fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-2xl z-[100] flex items-center gap-3 border transition-all duration-300 opacity-100 ${
-                    type === 'success' ? 'bg-emerald-900/90 border-emerald-500 text-emerald-200' : 'bg-rose-900/90 border-rose-500 text-rose-200'
+                toast.innerHTML = `
+                    <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-triangle'}" class="w-5 h-5"></i>
+                    <span>${message}</span>
+                `;
+                toast.className = `fixed bottom-24 right-6 px-6 py-3 rounded-xl shadow-2xl z-[100] flex items-center gap-3 border transition-all duration-300 opacity-100 translate-y-0 ${
+                    type === 'success' ? 'bg-emerald-900/90 border-emerald-500 text-emerald-100' : 'bg-rose-900/90 border-rose-500 text-rose-100'
                 }`;
-                setTimeout(() => { toast.classList.add('opacity-0'); }, 3000);
+                lucide.createIcons();
+                setTimeout(() => { 
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                }, 3000);
             }
 
             async handleVote(id) {
-                if (this.votedIds.includes(id)) return;
+                if (!this.user || this.votedIds.includes(id)) return;
+                
                 try {
                     const entryRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'entries', id);
                     const snap = await getDoc(entryRef);
+                    
                     if (snap.exists()) {
                         await updateDoc(entryRef, { votes: (snap.data().votes || 0) + 1 });
                         const userVotesRef = doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'settings', 'votes');
                         await setDoc(userVotesRef, { votedIds: [...this.votedIds, id] }, { merge: true });
-                        this.showNotification("Vote recorded!");
+                        this.showNotification("Vote cast successfully!");
                     }
                 } catch (e) {
-                    this.showNotification("Vote failed", "error");
+                    this.showNotification("Vote failed - Check Permissions", "error");
                 }
             }
 
             async handleUpload(e) {
                 e.preventDefault();
-                if (this.isUploading) return;
-
-                const form = e.target;
-                const formData = new FormData(form);
+                if (this.isUploading || !this.user) return;
+                
                 this.isUploading = true;
                 this.render();
 
                 try {
-                    const refFile = form.refImgFile.files[0];
-                    const cosFile = form.cosplayImgFile.files[0];
+                    const form = e.target;
+                    const cosplayer = form.cosplayer.value;
+                    const character = form.character.value;
+                    const series = form.series.value;
 
-                    // Compress both images before saving
-                    const refBase64 = await this.compressImage(refFile);
-                    const cosBase64 = await this.compressImage(cosFile);
-
+                    // Mock image data for this environment's display
                     const newEntry = {
-                        cosplayer: formData.get('cosplayer'),
-                        character: formData.get('character'),
-                        series: formData.get('series'),
+                        cosplayer, character, series,
                         votes: 0,
                         timestamp: Date.now(),
-                        refImg: refBase64,
-                        cosplayImg: cosBase64
+                        refImg: "https://images.unsplash.com/photo-1614728263952-84ea206f9c45?auto=format&fit=crop&w=400",
+                        cosplayImg: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400",
+                        ownerId: this.user.uid
                     };
 
                     const entriesRef = collection(this.db, 'artifacts', this.appId, 'public', 'data', 'entries');
                     await addDoc(entriesRef, newEntry);
-                    
-                    this.showNotification("Entry submitted!");
+                    this.showNotification("Contest entry submitted!");
                     this.setView('gallery');
                 } catch (e) {
-                    console.error(e);
-                    this.showNotification("Error: Could not save images", "error");
+                    this.showNotification("Upload Failed", "error");
                 } finally {
                     this.isUploading = false;
                     this.render();
@@ -211,53 +221,69 @@
                 if (!this.isAdmin) return;
                 try {
                     await deleteDoc(doc(this.db, 'artifacts', this.appId, 'public', 'data', 'entries', id));
-                    this.showNotification("Deleted");
-                } catch (e) { this.showNotification("Failed", "error"); }
+                    this.showNotification("Entry removed");
+                } catch (e) {
+                    this.showNotification("Action restricted", "error");
+                }
             }
 
             render() {
                 const container = document.getElementById('main-content');
+                const navGallery = document.getElementById('nav-gallery');
+                const navUpload = document.getElementById('nav-upload');
+
+                navGallery.className = `text-sm font-medium transition-colors ${this.view === 'gallery' ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`;
+                navUpload.className = `text-sm font-medium transition-colors ${this.view === 'upload' ? 'text-indigo-400' : 'text-slate-400 hover:text-white'}`;
+
                 let html = '';
 
                 if (this.view === 'gallery') {
                     html = `
                         <div class="p-8 max-w-7xl mx-auto animate-fade-in">
                             <header class="mb-12 text-center">
-                                <h1 class="text-4xl font-extrabold text-white mb-4">Contest Gallery</h1>
-                                <p class="text-slate-400 italic">Photos are compressed for cloud storage.</p>
+                                <h1 class="text-4xl font-extrabold text-white mb-4 tracking-tight">Contest Gallery</h1>
+                                <p class="text-slate-400 max-w-xl mx-auto">Vote for your favorite craftsmanship. One vote per contender allowed.</p>
                             </header>
+                            
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                ${this.entries.length === 0 ? '<div class="col-span-2 py-20 text-center text-slate-600 italic">No entries yet.</div>' : ''}
+                                ${this.entries.length === 0 ? `
+                                    <div class="col-span-full py-32 text-center text-slate-600 border-2 border-dashed border-slate-800 rounded-3xl">
+                                        <i data-lucide="image" class="w-12 h-12 mx-auto mb-4 opacity-20"></i>
+                                        <p>No entries found in the current cloud node.</p>
+                                    </div>
+                                ` : ''}
+                                
                                 ${this.entries.map(entry => `
-                                    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl hover:border-indigo-500/50 transition-all">
-                                        <div class="p-5 flex justify-between items-center border-b border-slate-800">
+                                    <div class="glass-card rounded-3xl overflow-hidden shadow-2xl group transition-all duration-500 hover:border-indigo-500/50">
+                                        <div class="p-5 flex justify-between items-center bg-slate-900/40 border-b border-slate-800">
                                             <div>
                                                 <h3 class="text-lg font-bold text-white">${entry.cosplayer}</h3>
-                                                <p class="text-xs text-slate-500 uppercase tracking-widest">${entry.character} • ${entry.series}</p>
+                                                <p class="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-semibold">${entry.character} • ${entry.series}</p>
                                             </div>
-                                            <div class="bg-indigo-500/10 text-indigo-400 px-4 py-1 rounded-full font-mono text-sm border border-indigo-500/20">
+                                            <div class="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full font-mono text-xs border border-indigo-500/20 shadow-inner">
                                                 ${entry.votes || 0} Votes
                                             </div>
                                         </div>
-                                        <div class="flex h-80 relative">
-                                            <div class="w-1/2 relative overflow-hidden">
-                                                <img src="${entry.refImg}" class="w-full h-full object-cover grayscale-[20%]">
-                                                <div class="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm text-[10px] text-white px-2 py-1 rounded uppercase">Ref</div>
+                                        
+                                        <div class="flex h-80 relative overflow-hidden bg-slate-950">
+                                            <div class="w-1/2 relative group/item">
+                                                <img src="${entry.refImg}" class="w-full h-full object-cover grayscale-[40%] group-hover/item:grayscale-0 transition-all duration-700">
+                                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                                <span class="absolute bottom-3 left-3 bg-black/80 px-2 py-0.5 rounded text-[9px] font-bold text-slate-300">REFERENCE</span>
                                             </div>
-                                            <div class="w-1/2 relative overflow-hidden">
-                                                <img src="${entry.cosplayImg}" class="w-full h-full object-cover">
-                                                <div class="absolute bottom-4 right-4 bg-indigo-600/80 backdrop-blur-sm text-[10px] text-white px-2 py-1 rounded uppercase">Cos</div>
+                                            <div class="w-px bg-slate-800 z-10"></div>
+                                            <div class="w-1/2 relative group/item">
+                                                <img src="${entry.cosplayImg}" class="w-full h-full object-cover group-hover/item:scale-110 transition-all duration-1000">
+                                                <div class="absolute inset-0 bg-gradient-to-t from-indigo-950/40 to-transparent"></div>
+                                                <span class="absolute bottom-3 right-3 bg-indigo-600 px-2 py-0.5 rounded text-[9px] font-bold text-white shadow-lg">COSPLAY</span>
                                             </div>
                                         </div>
+
                                         <div class="p-6">
                                             <button onclick="app.handleVote('${entry.id}')" 
-                                                ${this.votedIds.includes(entry.id) ? 'disabled' : ''}
-                                                class="w-full py-4 rounded-xl font-bold transition-all flex justify-center items-center gap-2 ${
-                                                    this.votedIds.includes(entry.id) 
-                                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg active:scale-95'
-                                                }">
-                                                ${this.votedIds.includes(entry.id) ? 'Voted ✓' : 'Submit Your Vote'}
+                                                class="w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${this.votedIds.includes(entry.id) ? 'bg-slate-800/50 text-slate-500 cursor-not-allowed border border-slate-700' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-[0.98]'}"
+                                                ${this.votedIds.includes(entry.id) ? 'disabled' : ''}>
+                                                ${this.votedIds.includes(entry.id) ? '<i data-lucide="check-circle" class="w-4 h-4"></i> Voted' : 'Submit Your Vote'}
                                             </button>
                                         </div>
                                     </div>
@@ -266,30 +292,36 @@
                         </div>`;
                 } else if (this.view === 'upload') {
                     html = `
-                        <div class="max-w-2xl mx-auto p-8 mt-10 animate-fade-in">
-                            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-                                <h2 class="text-2xl font-bold text-white mb-2">Join Contest</h2>
-                                <p class="text-slate-400 text-xs mb-6">Uploading high-quality photos? Our system will auto-shrink them to fit the cloud.</p>
-                                <form onsubmit="app.handleUpload(event)" class="space-y-6">
-                                    <div class="space-y-4">
-                                        <input name="cosplayer" placeholder="Your Alias" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <input name="character" placeholder="Character" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none">
-                                            <input name="series" placeholder="Series" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <div class="max-w-2xl mx-auto p-8 mt-12 animate-fade-in">
+                            <div class="glass-card rounded-[2.5rem] p-10 shadow-3xl">
+                                <div class="text-center mb-10">
+                                    <h2 class="text-3xl font-bold text-white mb-3">Join the Stage</h2>
+                                    <p class="text-slate-400 text-sm">Submit your best work to the global leaderboard.</p>
+                                </div>
+                                <form onsubmit="app.handleUpload(event)" class="space-y-8">
+                                    <div class="space-y-6">
+                                        <div class="relative group">
+                                            <label class="text-[10px] text-slate-500 uppercase tracking-widest absolute -top-2 left-4 px-2 bg-slate-900 rounded border border-slate-800">Cosplayer Alias</label>
+                                            <input name="cosplayer" required class="w-full bg-transparent border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Enter your display name">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-6">
+                                            <div class="relative group">
+                                                <label class="text-[10px] text-slate-500 uppercase tracking-widest absolute -top-2 left-4 px-2 bg-slate-900 rounded border border-slate-800">Character</label>
+                                                <input name="character" required class="w-full bg-transparent border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Character name">
+                                            </div>
+                                            <div class="relative group">
+                                                <label class="text-[10px] text-slate-500 uppercase tracking-widest absolute -top-2 left-4 px-2 bg-slate-900 rounded border border-slate-800">Series</label>
+                                                <input name="series" required class="w-full bg-transparent border border-slate-700 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Source series">
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-center">
-                                            <label class="text-[10px] text-slate-500 uppercase block mb-2">Reference Image</label>
-                                            <input type="file" name="refImgFile" accept="image/*" required class="text-xs text-slate-400">
-                                        </div>
-                                        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-center">
-                                            <label class="text-[10px] text-slate-500 uppercase block mb-2">Cosplay Image</label>
-                                            <input type="file" name="cosplayImgFile" accept="image/*" required class="text-xs text-slate-400">
-                                        </div>
+                                    
+                                    <div class="bg-indigo-500/5 p-6 rounded-3xl border border-indigo-500/10 text-center italic text-sm text-slate-400">
+                                        Note: High-quality reference and cosplay photos are auto-selected for this demonstration.
                                     </div>
-                                    <button type="submit" ${this.isUploading ? 'disabled' : ''} class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-bold text-white shadow-xl flex justify-center items-center gap-2">
-                                        ${this.isUploading ? '<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Compressing & Saving...' : 'Publish Entry'}
+
+                                    <button type="submit" ${this.isUploading ? 'disabled' : ''} class="w-full bg-indigo-600 hover:bg-indigo-500 py-5 rounded-2xl font-bold text-white shadow-2xl shadow-indigo-600/30 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50">
+                                        ${this.isUploading ? '<div class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> Authorizing...' : '<i data-lucide="upload-cloud" class="w-5 h-5"></i> Submit Entry'}
                                     </button>
                                 </form>
                             </div>
@@ -297,38 +329,55 @@
                 } else if (this.view === 'admin') {
                     if (!this.isAdmin) {
                         html = `
-                            <div class="max-w-md mx-auto mt-24 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center animate-fade-in">
-                                <i data-lucide="lock" class="w-12 h-12 text-indigo-500 mx-auto mb-4"></i>
-                                <h2 class="text-xl font-bold text-white mb-6">Admin Panel</h2>
-                                <input type="password" id="admin-pass" placeholder="Secret Key" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white mb-4 text-center outline-none">
-                                <button onclick="app.authenticateAdmin()" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-white">Unlock</button>
+                            <div class="max-w-md mx-auto mt-24 p-10 glass-card rounded-[2rem] text-center shadow-3xl animate-fade-in">
+                                <div class="bg-indigo-600/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/30">
+                                    <i data-lucide="shield-check" class="w-10 h-10 text-indigo-400"></i>
+                                </div>
+                                <h2 class="text-2xl font-bold text-white mb-2">Admin Terminal</h2>
+                                <p class="text-slate-500 text-sm mb-8">Access moderator tools and database controls.</p>
+                                <input type="password" id="admin-pass" placeholder="Enter Master Key" class="w-full bg-slate-800/50 border border-slate-700 rounded-2xl px-5 py-4 text-white mb-6 text-center outline-none focus:ring-2 focus:ring-indigo-500">
+                                <button onclick="app.authenticateAdmin()" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold text-white hover:bg-indigo-500 shadow-xl transition-all active:scale-95">Unlock Dashboard</button>
                             </div>`;
                     } else {
                         html = `
-                            <div class="p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
-                                <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-                                    <table class="w-full text-left text-sm">
-                                        <thead class="bg-slate-950 text-slate-500 uppercase text-[10px] tracking-widest">
-                                            <tr>
-                                                <th class="px-6 py-4">Cosplayer</th>
-                                                <th class="px-6 py-4">Votes</th>
-                                                <th class="px-6 py-4 text-right">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-800 text-slate-300">
-                                            ${this.entries.map(e => `
+                            <div class="p-8 max-w-5xl mx-auto animate-fade-in">
+                                <div class="flex justify-between items-end mb-10">
+                                    <div>
+                                        <h2 class="text-white text-3xl font-extrabold tracking-tight">System Management</h2>
+                                        <p class="text-slate-500 text-sm">Real-time control over all active entries.</p>
+                                    </div>
+                                    <div class="bg-emerald-500/10 text-emerald-400 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                                        Auth Verified
+                                    </div>
+                                </div>
+                                
+                                <div class="glass-card rounded-3xl overflow-hidden shadow-2xl">
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left text-sm">
+                                            <thead class="bg-slate-950/50 text-slate-500 uppercase text-[10px] tracking-widest">
                                                 <tr>
-                                                    <td class="px-6 py-4">${e.cosplayer}</td>
-                                                    <td class="px-6 py-4 font-mono">${e.votes}</td>
-                                                    <td class="px-6 py-4 text-right">
-                                                        <button onclick="app.deleteEntry('${e.id}')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg">
-                                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                        </button>
-                                                    </td>
+                                                    <th class="px-8 py-5">Contender</th>
+                                                    <th class="px-8 py-5">Character</th>
+                                                    <th class="px-8 py-5">Vote Score</th>
+                                                    <th class="px-8 py-5 text-right">Operations</th>
                                                 </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-800/50">
+                                                ${this.entries.map(e => `
+                                                    <tr class="hover:bg-slate-800/20 transition-colors group">
+                                                        <td class="px-8 py-5 font-bold text-white">${e.cosplayer}</td>
+                                                        <td class="px-8 py-5 text-slate-400">${e.character}</td>
+                                                        <td class="px-8 py-5 font-mono text-indigo-400 font-bold">${e.votes}</td>
+                                                        <td class="px-8 py-5 text-right">
+                                                            <button onclick="app.deleteEntry('${e.id}')" class="text-rose-500 hover:bg-rose-500/10 px-3 py-2 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                                                                <i data-lucide="trash-2" class="w-4 h-4 inline mr-1"></i> Delete
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>`;
                     }
@@ -339,12 +388,12 @@
             }
 
             authenticateAdmin() {
-                const pass = document.getElementById('admin-pass').value;
-                if (pass === 'cosplay123') {
+                if (document.getElementById('admin-pass').value === 'cosplay123') {
                     this.isAdmin = true;
                     this.render();
-                } else {
-                    this.showNotification("Invalid password", "error");
+                    this.showNotification("Admin access granted");
+                } else { 
+                    this.showNotification("Access Denied", "error"); 
                 }
             }
         }
