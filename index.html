@@ -54,7 +54,7 @@
                     <span id="sync-status">Initialising...</span>
                 </span>
                 <span class="text-slate-700">|</span>
-                <span>Secure Voting Protocol v3.1.0</span>
+                <span>Secure Voting Protocol v3.2.1</span>
             </p>
         </footer>
     </div>
@@ -64,10 +64,20 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-vote-app';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: ""
+        // --- GITHUB DEPLOYMENT CONFIG ---
+        const githubFirebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
         };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-vote-production';
+        const firebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config) 
+            ? JSON.parse(__firebase_config) 
+            : githubFirebaseConfig;
 
         class CosplayApp {
             constructor() {
@@ -78,20 +88,33 @@
                 this.isAdmin = false;
                 this.user = null;
                 this.isUploading = false;
+                this.dbActive = false;
                 this.initFirebase();
             }
 
             async initFirebase() {
+                if (!firebaseConfig.apiKey && typeof __firebase_config === 'undefined') {
+                    console.error("Firebase Config Missing!");
+                    document.getElementById('sync-status').textContent = "Offline Mode (Keys Missing)";
+                    document.getElementById('sync-status').className = "text-amber-500 font-bold";
+                    this.render();
+                    return;
+                }
+
                 try {
                     const app = initializeApp(firebaseConfig);
                     this.auth = getAuth(app);
                     this.db = getFirestore(app);
 
                     const initAuth = async () => {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(this.auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(this.auth);
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await signInWithCustomToken(this.auth, __initial_auth_token);
+                            } else {
+                                await signInAnonymously(this.auth);
+                            }
+                        } catch (authError) {
+                            console.warn("Auth failed:", authError);
                         }
                     };
                     await initAuth();
@@ -99,6 +122,7 @@
                     onAuthStateChanged(this.auth, (user) => {
                         this.user = user;
                         if (user) {
+                            this.dbActive = true;
                             document.getElementById('sync-status').textContent = "Cloud Sync Active";
                             document.getElementById('sync-status').className = "text-emerald-500 font-bold";
                             document.getElementById('status-dot').className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
@@ -106,22 +130,28 @@
                             this.setupListeners();
                         }
                     });
-                } catch (e) { console.error(e); }
+                } catch (e) { 
+                    console.error("Firebase Init Error:", e);
+                    this.showNotification("Database Connection Failed", "error");
+                }
             }
 
             async trackVisit() {
-                const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics');
-                try { await setDoc(statsRef, { views: increment(1) }, { merge: true }); } catch (e) {}
+                if (!this.user || !this.dbActive) return;
+                // FIX: Path must be even number of segments. Added 'stats' as document ID.
+                const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics', 'stats');
+                try { await setDoc(statsRef, { views: increment(1) }, { merge: true }); } catch (e) { console.error(e); }
             }
 
             setupListeners() {
-                if (!this.user) return;
+                if (!this.user || !this.dbActive) return;
+                
                 const entriesRef = collection(this.db, 'artifacts', appId, 'public', 'data', 'entries');
                 onSnapshot(entriesRef, (snapshot) => {
                     this.entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     this.entries.sort((a, b) => (b.votes || 0) - (a.votes || 0));
                     this.render();
-                }, (err) => console.error(err));
+                }, (err) => console.error("Firestore Listen Error:", err));
 
                 const votesRef = doc(this.db, 'artifacts', appId, 'users', this.user.uid, 'votes', 'history');
                 onSnapshot(votesRef, (snapshot) => {
@@ -129,7 +159,8 @@
                     this.render();
                 }, (err) => console.error(err));
 
-                const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics');
+                // FIX: Path must be even number of segments.
+                const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics', 'stats');
                 onSnapshot(statsRef, (snapshot) => {
                     if (snapshot.exists()) this.siteStats = snapshot.data();
                     this.render();
@@ -144,6 +175,7 @@
 
             showNotification(message, type = 'success') {
                 const toast = document.getElementById('notification');
+                if (!toast) return;
                 toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-triangle'}" class="w-5 h-5"></i><span>${message}</span>`;
                 toast.className = `fixed bottom-24 right-6 px-6 py-3 rounded-xl shadow-2xl z-[100] flex items-center gap-3 border transition-all duration-300 opacity-100 translate-y-0 ${
                     type === 'success' ? 'bg-emerald-900/90 border-emerald-500 text-emerald-100' : 'bg-rose-900/90 border-rose-500 text-rose-100'
@@ -174,6 +206,10 @@
             async submitEntry(e) {
                 e.preventDefault();
                 if (this.isUploading) return;
+                if (!this.user || !this.dbActive) {
+                    this.showNotification("Database offline. Check Firebase config.", "error");
+                    return;
+                }
                 
                 const cosplayer = document.getElementById('form-name').value;
                 const character = document.getElementById('form-char').value;
@@ -190,18 +226,6 @@
                 this.render();
 
                 try {
-                    // To handle photos properly without a dedicated cloud storage bucket,
-                    // we convert the files to Base64 strings for the demonstration. 
-                    // Note: Firestore has a 1MB limit, so we resize or use temporary object URLs for this session.
-                    
-                    const toBase64 = file => new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.readAsDataURL(file);
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = error => reject(error);
-                    });
-
-                    // For the demo, we use Object URLs to ensure they "display" in this session
                     const refUrl = URL.createObjectURL(refFile);
                     const cosUrl = URL.createObjectURL(cosFile);
 
@@ -221,14 +245,15 @@
                     this.isUploading = false;
                     this.setView('gallery');
                 } catch (e) {
-                    this.showNotification("Submission failed", "error");
+                    console.error(e);
+                    this.showNotification("Submission failed.", "error");
                     this.isUploading = false;
                     this.render();
                 }
             }
 
             async handleVote(id) {
-                if (!this.user || this.votedIds.includes(id)) return;
+                if (!this.user || !this.dbActive || this.votedIds.includes(id)) return;
                 try {
                     const entryRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', id);
                     await updateDoc(entryRef, { votes: increment(1) });
@@ -254,6 +279,14 @@
                 this.setView('gallery');
             }
 
+            async deleteEntry(id) {
+                if (!confirm("Are you sure you want to delete this entry?")) return;
+                try {
+                    await deleteDoc(doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', id));
+                    this.showNotification("Entry removed");
+                } catch (e) { console.error(e); }
+            }
+
             render() {
                 const container = document.getElementById('main-content');
                 if (!container) return;
@@ -276,6 +309,7 @@
                             <header class="mb-12 text-center">
                                 <h1 class="text-4xl font-extrabold text-white mb-2 tracking-tight">Cosplay Arena</h1>
                                 <p class="text-slate-400 italic">"The art of craftsmanship on display"</p>
+                                ${!this.dbActive ? '<p class="mt-4 text-rose-400 text-sm font-bold bg-rose-500/10 inline-block px-4 py-1 rounded-full">⚠️ Connection Offline: Database config required for GitHub deploy.</p>' : ''}
                             </header>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 ${this.entries.length === 0 ? '<p class="col-span-2 text-center text-slate-600 py-12">No entries yet. Be the first to enter!</p>' : this.entries.map((entry, idx) => `
@@ -354,14 +388,8 @@
                                         </div>
                                     </div>
 
-                                    <div class="p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 text-center">
-                                        <p class="text-[10px] text-indigo-300 leading-relaxed italic">
-                                            "Images are previewed locally. Submissions are live instantly."
-                                        </p>
-                                    </div>
-
                                     <button type="submit" class="w-full bg-indigo-600 py-4 rounded-2xl font-black text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex justify-center items-center gap-2">
-                                        ${this.isUploading ? '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>' : 'SUBMIT COMPETITION ENTRY'}
+                                        ${this.isUploading ? '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>' : 'SUBMIT ENTRY'}
                                     </button>
                                 </form>
                             </div>
@@ -423,14 +451,6 @@
                     }
                 }
                 lucide.createIcons();
-            }
-
-            async deleteEntry(id) {
-                if (!confirm("Are you sure you want to delete this entry?")) return;
-                try {
-                    await deleteDoc(doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', id));
-                    this.showNotification("Entry removed");
-                } catch (e) { console.error(e); }
             }
         }
         window.app = new CosplayApp();
