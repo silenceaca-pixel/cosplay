@@ -2,85 +2,90 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COSVOTE - Secure Contest</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>COSVOTE - Pro High-Scale Contest</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; overflow-x: hidden; }
-        .glass-card { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
-        .upload-zone { border: 2px dashed rgba(51, 65, 85, 0.3); transition: all 0.3s ease; cursor: pointer; position: relative; overflow: hidden; height: 120px; border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .upload-zone.has-file { border-color: #10b981; background: rgba(16, 185, 129, 0.05); border-style: solid; }
-        .preview-img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
-        .loader { width: 18px; height: 18px; border: 2px solid #FFF; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; }
-        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .upload-zone { border: 2px dashed #1e293b; transition: 0.3s; cursor: pointer; border-radius: 1.25rem; height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .upload-zone:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
+        .upload-zone.has-file { border-color: #10b981; border-style: solid; }
+        .img-preview { width: 100%; height: 100%; object-fit: cover; border-radius: 1.15rem; }
+        .loader { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .rank-badge { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .nav-item { position: relative; padding: 0.5rem 0.25rem; transition: 0.3s; cursor: pointer; }
+        .nav-active::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 100%; height: 2px; background: #6366f1; border-radius: 2px; }
+        html { scroll-behavior: smooth; }
+        @media (max-width: 640px) {
+            .gallery-grid { grid-template-columns: 1fr; }
+            .comparison-h { height: 320px; }
+        }
     </style>
 </head>
-<body class="selection:bg-indigo-500/30">
+<body class="min-h-screen">
 
-    <div id="root">
-        <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 px-6 py-4">
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="glass sticky top-0 z-[100] px-4 py-3 sm:px-8 border-b border-white/5">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-2 cursor-pointer" onclick="app.setView('gallery')">
-                    <div class="bg-indigo-600 p-2 rounded-lg shadow-lg">
-                        <i data-lucide="camera" class="text-white w-6 h-6"></i>
+                <div class="flex items-center gap-3 cursor-pointer" onclick="app.setView('gallery')">
+                    <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <i data-lucide="zap" class="text-white w-6 h-6 fill-current"></i>
                     </div>
-                    <span class="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">COSVOTE</span>
+                    <h1 class="font-extrabold text-xl tracking-tighter">COSVOTE</h1>
                 </div>
-                <div class="flex gap-4 sm:gap-6 items-center">
-                    <button onclick="app.setView('gallery')" id="nav-gallery" class="text-sm font-medium transition-colors">Gallery</button>
-                    <button onclick="app.setView('upload')" id="nav-upload" class="text-sm font-medium text-slate-400 hover:text-white transition-colors">Enter</button>
-                    <button onclick="app.setView('admin')" id="nav-admin" class="px-4 py-2 rounded-full text-xs font-bold transition-all bg-slate-800 text-slate-300">Admin</button>
+                <div class="flex items-center gap-6">
+                    <button onclick="app.setView('gallery')" id="nav-gallery" class="nav-item text-sm font-bold text-slate-400 nav-active text-white">Gallery</button>
+                    <button onclick="app.setView('upload')" id="nav-upload" class="nav-item text-sm font-bold text-slate-400">Enter</button>
+                    <button onclick="app.setView('admin')" id="nav-admin" class="bg-slate-800/50 p-2 rounded-lg border border-white/5"><i data-lucide="shield" class="w-5 h-5"></i></button>
                 </div>
             </div>
         </nav>
 
-        <main id="main-content" class="pb-24 min-h-screen"></main>
+        <!-- Main Content -->
+        <main id="main-ui" class="max-w-7xl mx-auto px-4 py-8 pb-32"></main>
 
-        <div id="notification" class="fixed bottom-24 right-6 px-6 py-4 rounded-2xl shadow-2xl z-[100] flex items-center gap-3 border opacity-0 pointer-events-none transition-all duration-300 transform translate-y-4"></div>
-
-        <footer class="fixed bottom-0 w-full bg-slate-900/90 backdrop-blur-md border-t border-slate-800 py-4 px-6 text-center z-40">
-            <p class="text-[10px] text-slate-500 uppercase tracking-widest flex items-center justify-center gap-3">
-                <span id="sync-status" class="flex items-center gap-1.5">
-                    <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
-                    <span>Connecting...</span>
-                </span>
-                <span class="text-slate-700">|</span>
-                <span>One Vote Per Device Policy Active</span>
-            </p>
+        <!-- Notification -->
+        <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 glass px-6 py-4 rounded-2xl border border-white/10 opacity-0 pointer-events-none transition-all duration-300 transform translate-y-4 flex items-center gap-3 z-[1000] min-w-[300px]"></div>
+        
+        <!-- Bottom Status Bar -->
+        <footer class="fixed bottom-0 w-full glass border-t border-white/5 py-3 px-6 z-[90]">
+            <div class="max-w-7xl mx-auto flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <div class="flex items-center gap-2">
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span id="sync-text">Initialising...</span>
+                </div>
+                <div class="hidden sm:block text-indigo-400">Security: 1 Device 1 Vote Limit Active</div>
+                <div id="user-short-id">---</div>
+            </div>
         </footer>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const githubConfig = {
-            apiKey: "AIzaSyCVs3azcvXUt5TbHbCLNZsU3AHiVW4nwtk",
-            authDomain: "cosplay-f8f1e.firebaseapp.com",
-            projectId: "cosplay-f8f1e",
-            storageBucket: "cosplay-f8f1e.firebasestorage.app",
-            messagingSenderId: "86635858213",
-            appId: "1:86635858213:web:eae6f15a09bb066a7032cc"
-        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cos-prod-stable-001';
+        const firebaseConfig = JSON.parse(__firebase_config);
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-vote-production';
-        const firebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config) ? JSON.parse(__firebase_config) : githubConfig;
-
-        class CosplayApp {
+        class VoteApp {
             constructor() {
                 this.view = 'gallery';
                 this.entries = [];
-                this.votedIds = [];
+                this.userVote = null;
                 this.user = null;
                 this.isAdmin = false;
-                this.isBusy = false;
+                this.isLoading = false;
+                this.totalUniqueVisitors = 0;
                 this.db = null;
                 this.auth = null;
+                this.files = { ref: null, cos: null };
+                this.unsubscribers = [];
                 this.init();
             }
 
@@ -90,59 +95,100 @@
                     this.auth = getAuth(app);
                     this.db = getFirestore(app);
 
-                    // Strict Auth-First Flow
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(this.auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(this.auth);
-                    }
+                    const performAuth = async () => {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(this.auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(this.auth);
+                        }
+                    };
+                    
+                    await performAuth();
 
-                    onAuthStateChanged(this.auth, (user) => {
+                    onAuthStateChanged(this.auth, async (user) => {
                         this.user = user;
                         if (user) {
-                            this.updateStatus("System Live", "emerald");
+                            document.getElementById('user-short-id').textContent = `ID: ${user.uid.slice(0,6)}`;
+                            document.getElementById('sync-dot').className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                            document.getElementById('sync-text').textContent = 'Live Sync Active';
+                            
                             this.setupListeners();
+                            this.trackVisit();
                         } else {
-                            this.updateStatus("Auth Error", "rose");
+                            await performAuth();
                         }
                     });
                 } catch (e) {
-                    this.updateStatus("Connection Lost", "rose");
-                    this.showNotification("Network unstable. Please refresh.", "error");
+                    console.error("Initialization error:", e);
+                    this.notify("Connection Error. Please refresh.", "error");
                 }
             }
 
-            updateStatus(text, color) {
-                const dot = document.getElementById('status-dot');
-                const statusText = document.querySelector('#sync-status span:last-child');
-                if (dot && statusText) {
-                    dot.className = `w-2 h-2 rounded-full bg-${color}-500 ${color === 'emerald' ? 'animate-pulse' : ''}`;
-                    statusText.textContent = text;
-                    statusText.className = `text-${color}-500 font-bold`;
+            async trackVisit() {
+                if (!this.user) return;
+                try {
+                    const visitRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'visitors', this.user.uid);
+                    const snap = await getDoc(visitRef);
+                    if (!snap.exists()) {
+                        await setDoc(visitRef, { timestamp: Date.now() });
+                    }
+                } catch (e) {
+                    console.warn("Analytics error:", e);
                 }
             }
 
             setupListeners() {
                 if (!this.user) return;
+                
+                this.unsubscribers.forEach(u => u());
+                this.unsubscribers = [];
 
-                // Sync Gallery
                 const entriesRef = collection(this.db, 'artifacts', appId, 'public', 'data', 'entries');
-                onSnapshot(entriesRef, (snap) => {
+                const u1 = onSnapshot(entriesRef, (snap) => {
                     this.entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     this.entries.sort((a, b) => (b.votes || 0) - (a.votes || 0));
                     this.render();
-                }, (err) => this.showNotification("Sync error", "error"));
+                }, (err) => console.error("Entries listener error:", err));
+                this.unsubscribers.push(u1);
 
-                // Sync Private User Votes (Strict Check)
-                const votesRef = doc(this.db, 'artifacts', appId, 'users', this.user.uid, 'votes', 'history');
-                onSnapshot(votesRef, (snap) => {
-                    this.votedIds = snap.exists() ? (snap.data().votedIds || []) : [];
+                const userRef = doc(this.db, 'artifacts', appId, 'users', this.user.uid, 'settings', 'profile');
+                const u2 = onSnapshot(userRef, (snap) => {
+                    this.userVote = snap.exists() ? snap.data().votedFor : null;
                     this.render();
-                });
+                }, (err) => console.error("Profile listener error:", err));
+                this.unsubscribers.push(u2);
+
+                const visitorsRef = collection(this.db, 'artifacts', appId, 'public', 'data', 'visitors');
+                const u3 = onSnapshot(visitorsRef, (snap) => {
+                    this.totalUniqueVisitors = snap.size;
+                    if (this.view === 'admin') this.render();
+                }, (err) => console.warn("Visitor listener error (ignoring if not admin):", err));
+                this.unsubscribers.push(u3);
             }
 
-            async compressImage(file, maxDimension = 600) {
-                return new Promise((resolve) => {
+            async handleVote(entryId) {
+                if (!this.user || this.userVote || this.isLoading) return;
+                this.isLoading = true;
+                this.render();
+
+                try {
+                    const entryRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', entryId);
+                    await updateDoc(entryRef, { votes: increment(1) });
+
+                    const userRef = doc(this.db, 'artifacts', appId, 'users', this.user.uid, 'settings', 'profile');
+                    await setDoc(userRef, { votedFor: entryId, votedAt: Date.now() }, { merge: true });
+
+                    this.notify("Vote secured. Thank you!", "success");
+                } catch (e) {
+                    this.notify("Verification error. Try again.", "error");
+                } finally {
+                    this.isLoading = false;
+                    this.render();
+                }
+            }
+
+            async compress(file) {
+                return new Promise((res) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
                     reader.onload = (e) => {
@@ -150,213 +196,226 @@
                         img.src = e.target.result;
                         img.onload = () => {
                             const canvas = document.createElement('canvas');
-                            let w = img.width;
-                            let h = img.height;
-                            if (w > h) {
-                                if (w > maxDimension) { h *= maxDimension / w; w = maxDimension; }
-                            } else {
-                                if (h > maxDimension) { w *= maxDimension / h; h = maxDimension; }
-                            }
-                            canvas.width = w;
-                            canvas.height = h;
-                            const ctx = canvas.getContext('2d');
-                            ctx.fillStyle = "#FFFFFF";
-                            ctx.fillRect(0, 0, w, h);
-                            ctx.drawImage(img, 0, 0, w, h);
-                            resolve(canvas.toDataURL('image/jpeg', 0.6));
+                            const max = 800;
+                            let w = img.width, h = img.height;
+                            if (w > h && w > max) { h *= max/w; w = max; }
+                            else if (h > max) { w *= max/h; h = max; }
+                            canvas.width = w; canvas.height = h;
+                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                            res(canvas.toDataURL('image/jpeg', 0.7));
                         };
                     };
                 });
             }
 
-            async submitEntry(e) {
+            async submit(e) {
                 e.preventDefault();
-                if (this.isBusy) return;
-                
-                const name = document.getElementById('form-name').value;
-                const char = document.getElementById('form-char').value;
-                const refFile = document.getElementById('ref-file').files[0];
-                const cosFile = document.getElementById('cos-file').files[0];
+                if (!this.user || this.isLoading) return;
+                const name = document.getElementById('c-name').value;
+                const char = document.getElementById('c-char').value;
+                if (!name || !char || !this.files.ref || !this.files.cos) return this.notify("Incomplete form", "error");
 
-                if (!name || !char || !refFile || !cosFile) {
-                    return this.showNotification("Please select both photos", "error");
-                }
-
-                this.isBusy = true;
+                this.isLoading = true;
                 this.render();
-
                 try {
-                    const refBase64 = await this.compressImage(refFile);
-                    const cosBase64 = await this.compressImage(cosFile);
-
+                    const refB64 = await this.compress(this.files.ref);
+                    const cosB64 = await this.compress(this.files.cos);
                     const entriesRef = collection(this.db, 'artifacts', appId, 'public', 'data', 'entries');
                     await addDoc(entriesRef, {
-                        cosplayer: name,
-                        character: char,
-                        refImg: refBase64,
-                        cosplayImg: cosBase64,
-                        votes: 0,
-                        userId: this.user.uid,
-                        createdAt: Date.now()
+                        cosplayer: name, character: char, refImg: refB64, cosplayImg: cosB64,
+                        votes: 0, uid: this.user.uid, createdAt: Date.now()
                     });
-
-                    this.showNotification("Entry Published!");
+                    this.notify("Entry published!");
                     this.setView('gallery');
-                } catch (err) {
-                    this.showNotification("Upload failed. Try a smaller photo.", "error");
-                } finally {
-                    this.isBusy = false;
-                    this.render();
-                }
+                    this.files = { ref: null, cos: null };
+                } catch (e) { this.notify("Network busy, retry", "error"); }
+                this.isLoading = false;
             }
 
-            async handleVote(entryId) {
-                if (this.votedIds.includes(entryId) || this.isBusy || !this.user) return;
-                
-                this.isBusy = true;
-                this.render();
-
-                try {
-                    // Update entry count
-                    const entryRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', entryId);
-                    await updateDoc(entryRef, { votes: increment(1) });
-
-                    // Record vote for this specific device/user
-                    const userVotesRef = doc(this.db, 'artifacts', appId, 'users', this.user.uid, 'votes', 'history');
-                    const updatedVotes = [...this.votedIds, entryId];
-                    await setDoc(userVotesRef, { votedIds: updatedVotes }, { merge: true });
-
-                    this.showNotification("Vote Registered!");
-                } catch (e) {
-                    this.showNotification("Voting failed. Try again.", "error");
-                } finally {
-                    this.isBusy = false;
-                }
+            exportToCSV() {
+                let csv = "Rank,Cosplayer,Character,Votes\n";
+                this.entries.forEach((e, i) => {
+                    csv += `${i+1},"${e.cosplayer}","${e.character}",${e.votes}\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `cosvote_results_${Date.now()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
             }
 
-            showNotification(msg, type = 'success') {
-                const toast = document.getElementById('notification');
-                toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-5 h-5"></i><span>${msg}</span>`;
-                toast.className = `fixed bottom-24 right-6 px-6 py-4 rounded-2xl shadow-2xl z-[100] flex items-center gap-3 border transition-all duration-300 opacity-100 translate-y-0 ${
-                    type === 'success' ? 'bg-emerald-900/95 border-emerald-500 text-emerald-100' : 'bg-rose-900/95 border-rose-500 text-rose-100'
-                }`;
+            notify(msg, type = 'success') {
+                const t = document.getElementById('toast');
+                if (!t) return;
+                t.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'alert-octagon'}" class="${type === 'success' ? 'text-emerald-400' : 'text-rose-400'}"></i> <span class="text-sm font-bold">${msg}</span>`;
+                t.className = `fixed bottom-24 left-1/2 -translate-x-1/2 glass px-6 py-4 rounded-2xl border ${type === 'success' ? 'border-emerald-500/30' : 'border-rose-500/30'} opacity-100 translate-y-0 flex items-center gap-3 z-[1000]`;
                 lucide.createIcons();
-                setTimeout(() => toast.classList.add('opacity-0', 'translate-y-4'), 3000);
+                setTimeout(() => t.classList.add('opacity-0', 'translate-y-4'), 3000);
             }
 
-            setView(v) { this.view = v; this.render(); window.scrollTo(0,0); }
+            setView(v) { 
+                this.view = v; 
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('nav-active', 'text-white'));
+                const active = document.getElementById(`nav-${v}`);
+                if (active) active.classList.add('nav-active', 'text-white');
+                this.render(); 
+                window.scrollTo(0,0); 
+            }
 
-            async handleFileSelect(id, zoneId) {
-                const file = document.getElementById(id).files[0];
-                const zone = document.getElementById(zoneId);
-                if (file) {
-                    const preview = await this.compressImage(file, 300);
-                    zone.classList.add('has-file');
-                    zone.innerHTML = `<img src="${preview}" class="preview-img"><div class="absolute inset-0 bg-black/40 flex items-center justify-center"><i data-lucide="check" class="text-white"></i></div>`;
-                    lucide.createIcons();
-                }
+            async handleFile(type, input) {
+                const file = input.files[0];
+                if (!file) return;
+                this.files[type] = file;
+                const zone = document.getElementById(`${type}-zone`);
+                const preview = await this.compress(file);
+                zone.innerHTML = `<img src="${preview}" class="img-preview">`;
+                zone.classList.add('has-file');
             }
 
             render() {
-                const main = document.getElementById('main-content');
-                if (!main) return;
+                const ui = document.getElementById('main-ui');
+                if (!ui) return;
 
                 if (this.view === 'gallery') {
-                    main.innerHTML = `
-                        <div class="max-w-4xl mx-auto p-6 animate-fade-in">
-                            <div class="text-center mb-10">
-                                <h2 class="text-3xl font-black text-white">The Arena</h2>
-                                <p class="text-slate-500 text-sm">Strictly 1 vote per device</p>
+                    ui.innerHTML = `
+                        <div class="space-y-12 animate-in fade-in duration-500">
+                            <div class="text-center">
+                                <h2 class="text-4xl font-black tracking-tight mb-2">The Contest</h2>
+                                <p class="text-slate-400 text-sm font-medium">Verified Device ID Voting • 1 Choice Per Person</p>
                             </div>
-                            <div class="grid grid-cols-1 gap-8">
-                                ${this.entries.length === 0 ? '<p class="text-center text-slate-700 py-20">Waiting for entries...</p>' : this.entries.map(e => `
-                                    <div class="glass-card rounded-[2rem] overflow-hidden flex flex-col">
-                                        <div class="p-5 flex justify-between items-center border-b border-white/5">
+                            <div class="gallery-grid grid grid-cols-1 md:grid-cols-2 gap-10">
+                                ${this.entries.length === 0 ? '<div class="col-span-full py-20 text-center text-slate-600 font-bold flex flex-col items-center gap-4"><div class="loader"></div>Waiting for entries to land...</div>' : this.entries.map((e, i) => {
+                                    const isVoted = this.userVote === e.id;
+                                    return `
+                                    <div class="glass rounded-[2.5rem] overflow-hidden flex flex-col group transition-all duration-500 ${isVoted ? 'ring-2 ring-indigo-500' : ''}">
+                                        <div class="p-6 flex items-center justify-between">
                                             <div>
-                                                <h3 class="font-bold text-white text-lg">${e.cosplayer}</h3>
-                                                <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">${e.character}</p>
+                                                <h3 class="text-xl font-bold">${e.cosplayer}</h3>
+                                                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-extrabold">${e.character}</p>
                                             </div>
-                                            <div class="bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-full text-xs font-black border border-indigo-500/30">
-                                                ${e.votes || 0} VOTES
+                                            <div class="flex flex-col items-end">
+                                                <span class="text-2xl font-black text-indigo-400 leading-none">${e.votes || 0}</span>
+                                                <span class="text-[9px] text-slate-600 font-bold">VOTES</span>
                                             </div>
                                         </div>
-                                        <div class="flex h-72 sm:h-96 relative bg-black">
+                                        <div class="comparison-h h-80 sm:h-96 flex bg-black relative">
                                             <div class="w-1/2 relative border-r border-white/5">
                                                 <img src="${e.refImg}" class="w-full h-full object-cover opacity-60">
-                                                <div class="absolute bottom-3 left-3 bg-black/60 px-2 py-1 rounded text-[9px] font-bold text-white">REF</div>
+                                                <span class="absolute top-4 left-4 glass px-2 py-1 rounded text-[9px] font-bold">ORIGINAL</span>
                                             </div>
                                             <div class="w-1/2 relative">
                                                 <img src="${e.cosplayImg}" class="w-full h-full object-cover">
-                                                <div class="absolute bottom-3 right-3 bg-indigo-600 px-2 py-1 rounded text-[9px] font-bold text-white uppercase tracking-tighter">Cosplay</div>
+                                                <span class="absolute top-4 right-4 bg-indigo-600 px-2 py-1 rounded text-[9px] font-bold">COSPLAY</span>
                                             </div>
+                                            ${i < 3 ? `<div class="absolute -top-4 -left-4 w-12 h-12 rounded-full flex items-center justify-center rank-badge text-white font-black shadow-xl">#${i+1}</div>` : ''}
                                         </div>
-                                        <div class="p-5">
+                                        <div class="p-6">
                                             <button 
-                                                onclick="app.handleVote('${e.id}')" 
-                                                ${this.votedIds.includes(e.id) ? 'disabled' : ''}
-                                                class="w-full py-4 rounded-2xl font-black tracking-widest transition-all ${this.votedIds.includes(e.id) ? 'bg-slate-800 text-slate-600' : 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 active:scale-95'}">
-                                                ${this.votedIds.includes(e.id) ? 'VOTE RECORDED' : 'VOTE FOR THIS'}
+                                                onclick="app.handleVote('${e.id}')"
+                                                ${this.userVote || this.isLoading ? 'disabled' : ''}
+                                                class="w-full py-4 rounded-2xl font-black tracking-widest text-sm transition-all flex items-center justify-center gap-3 ${
+                                                    isVoted ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
+                                                    (this.userVote ? 'bg-slate-800 text-slate-600 opacity-50' : 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30 hover:bg-indigo-500 active:scale-95')
+                                                }">
+                                                ${this.isLoading ? '<div class="loader"></div>' : (isVoted ? '<i data-lucide="check" class="w-4 h-4"></i> VOTE REGISTERED' : (this.userVote ? 'VOTE LOCKED' : 'SUPPORT THIS ENTRY'))}
                                             </button>
                                         </div>
                                     </div>
-                                `).join('')}
+                                `}).join('')}
                             </div>
                         </div>`;
                 } else if (this.view === 'upload') {
-                    main.innerHTML = `
-                        <div class="max-w-xl mx-auto p-6 mt-6 animate-fade-in">
-                            <div class="glass-card p-8 rounded-[2.5rem] shadow-2xl">
-                                <h2 class="text-2xl font-bold text-white mb-2 text-center">Entry Form</h2>
-                                <p class="text-slate-500 text-xs text-center mb-8 italic">Device ID tracked for fairness</p>
-                                <form onsubmit="app.submitEntry(event)" class="space-y-6">
-                                    <div class="space-y-4">
-                                        <input id="form-name" type="text" placeholder="Your Alias" required class="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-4 text-white outline-none focus:border-indigo-500 transition-all">
-                                        <input id="form-char" type="text" placeholder="Character Name" required class="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-4 text-white outline-none focus:border-indigo-500 transition-all">
+                    ui.innerHTML = `
+                        <div class="max-w-xl mx-auto animate-in zoom-in duration-300">
+                            <div class="glass p-8 sm:p-12 rounded-[3rem] shadow-2xl">
+                                <h2 class="text-3xl font-black mb-2 text-center">Entry Form</h2>
+                                <p class="text-slate-500 text-center text-sm mb-10 font-medium">Secure Upload System v2.1</p>
+                                <form onsubmit="app.submit(event)" class="space-y-6">
+                                    <div class="grid grid-cols-1 gap-4">
+                                        <input id="c-name" type="text" placeholder="Your Artist Alias" required class="w-full bg-slate-900/50 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-indigo-500 transition-all font-bold">
+                                        <input id="c-char" type="text" placeholder="Character Name" required class="w-full bg-slate-900/50 border border-white/5 rounded-2xl px-6 py-4 outline-none focus:border-indigo-500 transition-all font-bold">
                                     </div>
                                     <div class="grid grid-cols-2 gap-4">
-                                        <div id="ref-zone" class="upload-zone" onclick="document.getElementById('ref-file').click()">
-                                            <input type="file" id="ref-file" accept="image/*" class="hidden" onchange="app.handleFileSelect('ref-file', 'ref-zone')">
-                                            <i data-lucide="image" class="text-slate-700 w-8 h-8 mb-2"></i>
-                                            <span class="text-[9px] font-bold text-slate-600">REF PHOTO</span>
+                                        <div id="ref-zone" class="upload-zone" onclick="document.getElementById('f-ref').click()">
+                                            <input type="file" id="f-ref" accept="image/*" class="hidden" onchange="app.handleFile('ref', this)">
+                                            <i data-lucide="image" class="text-slate-700 mb-2"></i>
+                                            <span class="text-[9px] font-bold text-slate-500 uppercase">Original</span>
                                         </div>
-                                        <div id="cos-zone" class="upload-zone" onclick="document.getElementById('cos-file').click()">
-                                            <input type="file" id="cos-file" accept="image/*" class="hidden" onchange="app.handleFileSelect('cos-file', 'cos-zone')">
-                                            <i data-lucide="camera" class="text-slate-700 w-8 h-8 mb-2"></i>
-                                            <span class="text-[9px] font-bold text-slate-600">COSPLAY</span>
+                                        <div id="cos-zone" class="upload-zone" onclick="document.getElementById('f-cos').click()">
+                                            <input type="file" id="f-cos" accept="image/*" class="hidden" onchange="app.handleFile('cos', this)">
+                                            <i data-lucide="camera" class="text-slate-700 mb-2"></i>
+                                            <span class="text-[9px] font-bold text-slate-500 uppercase">Your Cosplay</span>
                                         </div>
                                     </div>
-                                    <button type="submit" ${this.isBusy ? 'disabled' : ''} class="w-full bg-indigo-600 py-4 rounded-2xl text-white font-black shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 flex justify-center items-center gap-2">
-                                        ${this.isBusy ? '<span class="loader"></span> PROCESSING...' : 'JOIN CONTEST'}
+                                    <button type="submit" ${this.isLoading ? 'disabled' : ''} class="w-full bg-indigo-600 py-5 rounded-[1.5rem] text-white font-black tracking-widest shadow-2xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95 flex items-center justify-center gap-3">
+                                        ${this.isLoading ? '<div class="loader"></div> UPLOADING...' : 'PUBLISH COMPETITION ENTRY'}
                                     </button>
                                 </form>
                             </div>
                         </div>`;
                 } else if (this.view === 'admin') {
                     if (!this.isAdmin) {
-                        main.innerHTML = `
-                            <div class="max-w-md mx-auto mt-20 p-8 glass-card rounded-[2.5rem] text-center animate-fade-in">
-                                <i data-lucide="lock" class="mx-auto w-10 h-10 text-indigo-500 mb-6"></i>
-                                <h3 class="text-xl font-bold text-white mb-6">Admin Key Required</h3>
-                                <input id="admin-key" type="password" placeholder="Passcode" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-4 text-white mb-6 text-center outline-none">
-                                <button onclick="app.authAdmin()" class="w-full bg-indigo-600 py-4 rounded-xl font-bold">Access Registry</button>
+                        ui.innerHTML = `
+                            <div class="max-w-md mx-auto mt-12 p-10 glass rounded-[2.5rem] text-center animate-in slide-in-from-bottom duration-500">
+                                <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6"><i data-lucide="lock" class="text-indigo-500"></i></div>
+                                <h3 class="text-2xl font-black mb-8">Access Terminal</h3>
+                                <input id="pass" type="password" placeholder="Terminal Passkey" class="w-full bg-slate-950 border border-white/5 rounded-2xl px-6 py-4 text-center mb-6 outline-none focus:ring-2 ring-indigo-500/20">
+                                <button onclick="app.authenticateAdmin()" class="w-full bg-indigo-600 py-4 rounded-2xl font-black tracking-widest">ESTABLISH CONNECTION</button>
+                                <p class="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Passkey is: cosplay2026</p>
                             </div>`;
                     } else {
-                        main.innerHTML = `
-                            <div class="max-w-4xl mx-auto p-6 animate-fade-in">
-                                <div class="flex justify-between items-center mb-8">
-                                    <h2 class="text-2xl font-bold text-white">Registry Management</h2>
-                                    <button onclick="app.isAdmin=false; app.render();" class="text-xs font-bold text-rose-500">Lock Terminal</button>
+                        const totalVotes = this.entries.reduce((a,b)=>a+(b.votes||0),0);
+                        ui.innerHTML = `
+                            <div class="space-y-8 animate-in fade-in duration-500">
+                                <div class="flex justify-between items-center">
+                                    <h2 class="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
+                                        <i data-lucide="activity" class="text-emerald-500"></i> Global Dashboard
+                                    </h2>
+                                    <div class="flex gap-3">
+                                        <button onclick="app.setupListeners()" class="bg-slate-800 px-4 py-2 rounded-xl text-xs font-black tracking-widest hover:bg-slate-700 flex items-center gap-2"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Force Re-sync</button>
+                                        <button onclick="app.exportToCSV()" class="bg-indigo-600 px-6 py-2 rounded-xl text-xs font-black tracking-widest hover:bg-indigo-500">EXPORT (.CSV)</button>
+                                    </div>
                                 </div>
-                                <div class="glass-card rounded-[2rem] overflow-hidden">
-                                    ${this.entries.map(e => `
-                                        <div class="p-4 flex items-center justify-between border-b border-white/5">
-                                            <div><p class="font-bold text-sm text-white">${e.cosplayer}</p><p class="text-[10px] text-slate-500 uppercase">${e.character}</p></div>
-                                            <div class="flex items-center gap-4">
-                                                <span class="text-xs font-bold text-indigo-400 font-mono">${e.votes || 0}V</span>
-                                                <button onclick="app.deleteEntry('${e.id}')" class="text-slate-700 hover:text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div class="glass p-8 rounded-3xl">
+                                        <p class="text-slate-500 text-[10px] font-black uppercase mb-1">Total Hits (Unique Devices)</p>
+                                        <p class="text-4xl font-black">${this.totalUniqueVisitors}</p>
+                                    </div>
+                                    <div class="glass p-8 rounded-3xl border-indigo-500/20 ring-1 ring-indigo-500/20">
+                                        <p class="text-slate-500 text-[10px] font-black uppercase mb-1">Total Registered Votes</p>
+                                        <p class="text-4xl font-black text-indigo-400">${totalVotes}</p>
+                                    </div>
+                                    <div class="glass p-8 rounded-3xl">
+                                        <p class="text-slate-500 text-[10px] font-black uppercase mb-1">Conversion Rate</p>
+                                        <p class="text-4xl font-black text-emerald-400">${this.totalUniqueVisitors > 0 ? ((totalVotes/this.totalUniqueVisitors)*100).toFixed(1) : 0}%</p>
+                                    </div>
+                                </div>
+                                <div class="glass rounded-[2rem] overflow-hidden">
+                                    <div class="px-8 py-4 bg-white/5 text-[10px] font-black uppercase text-slate-500 tracking-widest grid grid-cols-4">
+                                        <span>Rank & Cosplayer</span>
+                                        <span class="hidden sm:block">Character</span>
+                                        <span class="text-center">Vote Count</span>
+                                        <span class="text-right">Actions</span>
+                                    </div>
+                                    <div class="divide-y divide-white/5">
+                                        ${this.entries.length === 0 ? '<div class="p-10 text-center text-slate-500 italic">No entries found in database.</div>' : this.entries.map((e, i) => `
+                                            <div class="px-8 py-5 grid grid-cols-4 items-center hover:bg-white/5 transition-colors">
+                                                <div class="flex items-center gap-4 text-xs">
+                                                    <span class="font-bold text-slate-500 w-6">#${i+1}</span>
+                                                    <span class="font-bold text-white">${e.cosplayer}</span>
+                                                </div>
+                                                <span class="hidden sm:block text-slate-400 text-sm">${e.character}</span>
+                                                <span class="text-center font-black text-indigo-400">${e.votes}</span>
+                                                <div class="text-right">
+                                                    <button onclick="app.del('${e.id}')" class="p-2 text-slate-700 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    `).join('')}
+                                        `).join('')}
+                                    </div>
                                 </div>
                             </div>`;
                     }
@@ -364,26 +423,34 @@
                 lucide.createIcons();
             }
 
-            authAdmin() {
-                if (document.getElementById('admin-key').value === 'cosplay123') {
+            authenticateAdmin() {
+                const passInput = document.getElementById('pass');
+                const pass = passInput?.value.trim();
+                
+                // Explicit check for the HTML passkey: cosplay2026
+                if (pass === 'cosplay2026') {
                     this.isAdmin = true;
-                    this.showNotification("Access Granted");
+                    this.notify("Master access granted");
+                    this.setupListeners();
                     this.render();
-                } else {
-                    this.showNotification("Invalid Key", "error");
+                } else { 
+                    this.isAdmin = false;
+                    this.notify("Unauthorized credentials", "error"); 
                 }
             }
 
-            async deleteEntry(id) {
-                if (!confirm("Delete this?")) return;
+            async del(id) {
+                if (!confirm("Remove entry permanently?")) return;
                 try {
                     await deleteDoc(doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', id));
-                    this.showNotification("Entry Deleted");
-                } catch (e) { this.showNotification("Delete error", "error"); }
+                    this.notify("Purged from DB");
+                } catch (e) { 
+                    this.notify("Delete failed", "error"); 
+                }
             }
         }
 
-        window.app = new CosplayApp();
+        window.onload = () => { window.app = new VoteApp(); };
     </script>
 </body>
 </html>
