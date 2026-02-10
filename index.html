@@ -19,6 +19,9 @@
         input::placeholder { color: #475569; }
         input[type="file"] { display: none; }
         .preview-img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+        /* Simple spinner */
+        .loader { width: 20px; height: 20px; border: 2px solid #FFF; border-bottom-color: transparent; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="selection:bg-indigo-500/30">
@@ -64,7 +67,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONFIG: Replace these with your actual keys from Firebase Console if hosting on GitHub
         const githubFirebaseConfig = {
             apiKey: "AIzaSyCVs3azcvXUt5TbHbCLNZsU3AHiVW4nwtk",
             authDomain: "cosplay-f8f1e.firebaseapp.com",
@@ -120,17 +122,42 @@
                     });
                 } catch (e) { 
                     console.error("Firebase Init Error:", e);
-                    document.getElementById('sync-status').textContent = "Offline Mode (Check Config)";
+                    document.getElementById('sync-status').textContent = "Offline Mode";
                     this.render();
                 }
             }
 
-            // Helper to convert File to Base64 string
-            toBase64(file) {
+            // High-efficiency Image Compression for strict 1MB Firestore limits
+            compressImage(file, maxWidth = 600, quality = 0.6) {
                 return new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result);
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+
+                            // Scale proportionally
+                            if (width > maxWidth) {
+                                height = (maxWidth / width) * height;
+                                width = maxWidth;
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            // Ensure background is solid for JPEG
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // Using JPEG at 0.6 quality results in tiny files (usually 50-150KB)
+                            resolve(canvas.toDataURL('image/jpeg', quality));
+                        };
+                    };
                     reader.onerror = error => reject(error);
                 });
             }
@@ -138,7 +165,7 @@
             async trackVisit() {
                 if (!this.user || !this.dbActive) return;
                 const statsRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'site_analytics', 'stats');
-                try { await setDoc(statsRef, { views: increment(1) }, { merge: true }); } catch (e) { console.error(e); }
+                try { await setDoc(statsRef, { views: increment(1) }, { merge: true }); } catch (e) {}
             }
 
             setupListeners() {
@@ -178,35 +205,27 @@
                     type === 'success' ? 'bg-emerald-900/90 border-emerald-500 text-emerald-100' : 'bg-rose-900/90 border-rose-500 text-rose-100'
                 }`;
                 lucide.createIcons();
-                setTimeout(() => toast.classList.add('opacity-0', 'translate-y-2'), 3000);
+                setTimeout(() => toast.classList.add('opacity-0', 'translate-y-2'), 4000);
             }
 
-            handleFileSelect(inputId, zoneId) {
+            async handleFileSelect(inputId, zoneId) {
                 const file = document.getElementById(inputId).files[0];
                 const zone = document.getElementById(zoneId);
                 if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
+                    try {
+                        const compressed = await this.compressImage(file, 400, 0.5);
                         zone.classList.add('has-file');
-                        zone.innerHTML = `
-                            <img src="${e.target.result}" class="preview-img">
-                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                <i data-lucide="refresh-cw" class="text-white w-6 h-6"></i>
-                            </div>
-                        `;
+                        zone.innerHTML = `<img src="${compressed}" class="preview-img"><div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><i data-lucide="refresh-cw" class="text-white w-6 h-6"></i></div>`;
                         lucide.createIcons();
-                    };
-                    reader.readAsDataURL(file);
+                    } catch (e) {
+                        this.showNotification("Failed to process image", "error");
+                    }
                 }
             }
 
             async submitEntry(e) {
                 e.preventDefault();
                 if (this.isUploading) return;
-                if (!this.user || !this.dbActive) {
-                    this.showNotification("Database offline.", "error");
-                    return;
-                }
                 
                 const cosplayer = document.getElementById('form-name').value;
                 const character = document.getElementById('form-char').value;
@@ -215,7 +234,7 @@
                 const cosFile = document.getElementById('cos-file').files[0];
 
                 if (!cosplayer || !character || !refFile || !cosFile) {
-                    this.showNotification("Fill all fields and upload photos", "error");
+                    this.showNotification("Complete all fields", "error");
                     return;
                 }
 
@@ -223,12 +242,13 @@
                 this.render();
 
                 try {
-                    // CONVERT TO BASE64 SO IT PERSISTS IN FIRESTORE
-                    const refBase64 = await this.toBase64(refFile);
-                    const cosBase64 = await this.toBase64(cosFile);
+                    // Optimized compression - max width 600px keeps Base64 strings well under 1MB
+                    const refBase64 = await this.compressImage(refFile, 600, 0.6);
+                    const cosBase64 = await this.compressImage(cosFile, 600, 0.6);
+
+                    if (!this.user) throw new Error("Not authenticated");
 
                     const entriesRef = collection(this.db, 'artifacts', appId, 'public', 'data', 'entries');
-                    
                     await addDoc(entriesRef, {
                         cosplayer,
                         character,
@@ -239,12 +259,12 @@
                         createdAt: Date.now()
                     });
                     
-                    this.showNotification("Competition entry submitted!");
+                    this.showNotification("Entry successfully published!");
                     this.isUploading = false;
                     this.setView('gallery');
-                } catch (e) {
-                    console.error("Submission Error:", e);
-                    this.showNotification("Failed to upload. Check security rules.", "error");
+                } catch (err) {
+                    console.error("Submission error:", err);
+                    this.showNotification("Submission failed. Photo size might still be too large.", "error");
                     this.isUploading = false;
                     this.render();
                 }
@@ -257,8 +277,8 @@
                     await updateDoc(entryRef, { votes: increment(1) });
                     const userVotesRef = doc(this.db, 'artifacts', appId, 'users', this.user.uid, 'votes', 'history');
                     await setDoc(userVotesRef, { votedIds: [...this.votedIds, id] }, { merge: true });
-                    this.showNotification("Vote recorded!");
-                } catch (e) { this.showNotification("Failed to vote", "error"); }
+                    this.showNotification("Vote counted!");
+                } catch (e) { this.showNotification("Vote failed", "error"); }
             }
 
             authenticateAdmin() {
@@ -268,7 +288,7 @@
                     this.showNotification("Admin Access Granted");
                     this.setView('admin'); 
                 } else {
-                    this.showNotification("Incorrect Passcode", "error");
+                    this.showNotification("Invalid Passcode", "error");
                 }
             }
 
@@ -278,10 +298,10 @@
             }
 
             async deleteEntry(id) {
-                if (!confirm("Delete this entry?")) return;
+                if (!confirm("Remove this entry?")) return;
                 try {
                     await deleteDoc(doc(this.db, 'artifacts', appId, 'public', 'data', 'entries', id));
-                    this.showNotification("Entry removed");
+                    this.showNotification("Entry deleted");
                 } catch (e) { console.error(e); }
             }
 
@@ -306,10 +326,10 @@
                         <div class="p-8 max-w-7xl mx-auto animate-fade-in">
                             <header class="mb-12 text-center">
                                 <h1 class="text-4xl font-extrabold text-white mb-2 tracking-tight">Cosplay Arena</h1>
-                                <p class="text-slate-400 italic">"The art of craftsmanship on display"</p>
+                                <p class="text-slate-400 italic">"Ranked by the community"</p>
                             </header>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                ${this.entries.length === 0 ? '<p class="col-span-2 text-center text-slate-600 py-12">No entries yet.</p>' : this.entries.map((entry, idx) => `
+                                ${this.entries.length === 0 ? '<p class="col-span-2 text-center text-slate-600 py-12">Waiting for first contenders...</p>' : this.entries.map((entry, idx) => `
                                     <div class="glass-card rounded-3xl overflow-hidden shadow-2xl flex flex-col">
                                         <div class="p-5 flex justify-between items-center bg-slate-900/40 border-b border-slate-800">
                                             <div class="flex items-center gap-3">
@@ -321,20 +341,14 @@
                                             </div>
                                             <div class="bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-full font-mono text-xs border border-indigo-500/20">${entry.votes || 0} Votes</div>
                                         </div>
-                                        <div class="flex h-72 relative bg-slate-950 overflow-hidden">
-                                            <div class="w-1/2 relative">
-                                                <img src="${entry.refImg}" class="w-full h-full object-cover opacity-80" onerror="this.src='https://via.placeholder.com/400x600?text=Ref+Image'">
-                                                <div class="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] text-white uppercase font-bold backdrop-blur-sm">Reference</div>
-                                            </div>
+                                        <div class="flex h-80 relative bg-slate-950 overflow-hidden">
+                                            <div class="w-1/2 relative"><img src="${entry.refImg}" class="w-full h-full object-cover opacity-80"><div class="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] text-white uppercase font-bold backdrop-blur-sm">Ref</div></div>
                                             <div class="w-px bg-slate-800 z-10"></div>
-                                            <div class="w-1/2 relative">
-                                                <img src="${entry.cosplayImg}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/400x600?text=Cosplay+Image'">
-                                                <div class="absolute bottom-2 right-2 bg-indigo-600 px-2 py-0.5 rounded text-[8px] text-white uppercase font-bold backdrop-blur-sm">Cosplay</div>
-                                            </div>
+                                            <div class="w-1/2 relative"><img src="${entry.cosplayImg}" class="w-full h-full object-cover"><div class="absolute bottom-2 right-2 bg-indigo-600 px-2 py-0.5 rounded text-[8px] text-white uppercase font-bold backdrop-blur-sm">Cosplay</div></div>
                                         </div>
                                         <div class="p-5 mt-auto">
-                                            <button onclick="app.handleVote('${entry.id}')" class="w-full py-3.5 rounded-xl font-bold transition-all ${this.votedIds.includes(entry.id) ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-95'}" ${this.votedIds.includes(entry.id) ? 'disabled' : ''}>
-                                                ${this.votedIds.includes(entry.id) ? 'Voted Registered' : 'Cast Your Vote'}
+                                            <button onclick="app.handleVote('${entry.id}')" class="w-full py-4 rounded-xl font-bold transition-all ${this.votedIds.includes(entry.id) ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-95'}" ${this.votedIds.includes(entry.id) ? 'disabled' : ''}>
+                                                ${this.votedIds.includes(entry.id) ? 'Vote Registered' : 'VOTE FOR THIS'}
                                             </button>
                                         </div>
                                     </div>
@@ -347,23 +361,23 @@
                             <div class="glass-card p-8 rounded-[2.5rem] shadow-2xl border-slate-800">
                                 <div class="text-center mb-8">
                                     <h2 class="text-2xl font-bold text-white">Join the Contest</h2>
-                                    <p class="text-slate-400 text-sm mt-1">Submit your build for public ranking</p>
+                                    <p class="text-slate-400 text-sm mt-1">Photos are optimized for mobile upload</p>
                                 </div>
 
                                 <form onsubmit="app.submitEntry(event)" class="space-y-6">
                                     <div class="space-y-4">
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Cosplayer Name</label>
-                                            <input id="form-name" type="text" required placeholder="Name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
+                                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Alias</label>
+                                            <input id="form-name" type="text" required placeholder="Cosplayer Name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
                                         </div>
                                         <div class="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Character</label>
-                                                <input id="form-char" type="text" required placeholder="Character" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
+                                                <input id="form-char" type="text" required placeholder="Name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
                                             </div>
                                             <div>
-                                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Series</label>
-                                                <input id="form-series" type="text" required placeholder="Series" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
+                                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Source</label>
+                                                <input id="form-series" type="text" required placeholder="Series/Game" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 text-white outline-none focus:border-indigo-500 transition-colors">
                                             </div>
                                         </div>
                                     </div>
@@ -373,20 +387,20 @@
                                             <input type="file" id="ref-file" accept="image/*" onchange="app.handleFileSelect('ref-file', 'ref-zone')">
                                             <div id="ref-zone" class="upload-zone group" onclick="document.getElementById('ref-file').click()">
                                                 <i data-lucide="image" class="w-6 h-6 text-slate-600 mb-1"></i>
-                                                <span class="text-[10px] text-slate-500 uppercase font-bold text-center px-2 truncate w-full">Reference Photo</span>
+                                                <span class="text-[10px] text-slate-500 uppercase font-bold text-center px-2">Reference Photo</span>
                                             </div>
                                         </div>
                                         <div>
                                             <input type="file" id="cos-file" accept="image/*" onchange="app.handleFileSelect('cos-file', 'cos-zone')">
                                             <div id="cos-zone" class="upload-zone group" onclick="document.getElementById('cos-file').click()">
                                                 <i data-lucide="camera" class="w-6 h-6 text-slate-600 mb-1"></i>
-                                                <span class="text-[10px] text-slate-500 uppercase font-bold text-center px-2 truncate w-full">Your Cosplay</span>
+                                                <span class="text-[10px] text-slate-500 uppercase font-bold text-center px-2">Your Cosplay</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     <button type="submit" class="w-full bg-indigo-600 py-4 rounded-2xl font-black text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all flex justify-center items-center gap-2">
-                                        ${this.isUploading ? '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>' : 'SUBMIT ENTRY'}
+                                        ${this.isUploading ? '<span class="loader"></span> Processing...' : 'SUBMIT ENTRY'}
                                     </button>
                                 </form>
                             </div>
@@ -429,10 +443,7 @@
                                             <div class="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
                                                 <div class="flex items-center gap-4">
                                                     <span class="w-6 text-center font-mono text-slate-600 text-xs">${idx + 1}</span>
-                                                    <div>
-                                                        <p class="text-sm font-bold text-white">${e.cosplayer}</p>
-                                                        <p class="text-[10px] text-slate-500 uppercase">${e.character}</p>
-                                                    </div>
+                                                    <div><p class="text-sm font-bold text-white">${e.cosplayer}</p><p class="text-[10px] text-slate-500 uppercase">${e.character}</p></div>
                                                 </div>
                                                 <div class="flex items-center gap-6">
                                                     <span class="text-sm font-bold text-indigo-400 font-mono">${e.votes || 0} V</span>
