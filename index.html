@@ -65,13 +65,16 @@
         import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, addDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- GITHUB DEPLOYMENT CONFIG ---
+        // If you want to host this on GitHub Pages, fill these in from your Firebase Console.
+        // The app will automatically use these if __firebase_config is not present.
         const githubFirebaseConfig = {
-            apiKey: "",
-            authDomain: "",
-            projectId: "",
-            storageBucket: "",
-            messagingSenderId: "",
-            appId: ""
+            apiKey: "AIzaSyCVs3azcvXUt5TbHbCLNZsU3AHiVW4nwtk",
+  authDomain: "cosplay-f8f1e.firebaseapp.com",
+  projectId: "cosplay-f8f1e",
+  storageBucket: "cosplay-f8f1e.firebasestorage.app",
+  messagingSenderId: "86635858213",
+  appId: "1:86635858213:web:eae6f15a09bb066a7032cc",
+  measurementId: "G-TB73NQ131K"
         };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'cosplay-vote-production';
